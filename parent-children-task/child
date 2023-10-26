@@ -1,0 +1,15 @@
+#! /usr/bin/python3
+
+import os
+import time
+import sys
+import random
+
+child_pid = os.getpid()
+parent_pid = os.getppid()
+res = f'Child[{child_pid}]: I am started. My PID {child_pid}. Parent PID {parent_pid}'
+print(res)
+time.sleep(int(sys.argv[1]))
+res = f'Child[{child_pid}]: I am ended. PID {child_pid}. Parent PID {parent_pid}'
+print(res)
+os._exit(random.randint(0,1))
