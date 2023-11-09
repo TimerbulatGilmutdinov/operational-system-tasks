@@ -1,0 +1,68 @@
+#! /usr/bin/python3
+
+import os
+import signal
+
+produced = 0
+
+
+def sigusr1_handler(signum, frame):
+    global produced
+    if signum == signal.SIGUSR1:
+        print(f'Produced: {produced}')
+
+
+def read_expression(descriptor):
+    byte = os.read(descriptor, 1)
+
+    char = byte.decode('utf-8')
+    expression = ''
+    while char != '\n':
+        expression = expression + char
+        char = os.read(descriptor, 1).decode('utf-8')
+    return expression
+
+
+def main():
+    read_descriptor_1_0, write_descriptor_1_0 = os.pipe()
+
+    pid = os.fork()
+
+    if pid != 0:
+        os.close(read_descriptor_1_0)
+
+        os.dup2(1, read_descriptor_1_0)
+        os.dup2(write_descriptor_1_0, 1)
+
+        os.execve('./producer', ['./producer'], os.environ)
+
+    read_descriptor_0_2, write_descriptor_0_2 = os.pipe()
+    read_descriptor_2_0, write_descriptor_2_0 = os.pipe()
+
+    pid = os.fork()
+
+    if pid != 0:
+        os.close(write_descriptor_0_2)
+        os.close(read_descriptor_2_0)
+
+        os.dup2(0, write_descriptor_0_2)
+        os.dup2(1, read_descriptor_2_0)
+        os.dup2(read_descriptor_0_2, 0)
+        os.dup2(write_descriptor_2_0, 1)
+
+        os.execve('/usr/bin/bc', ['/usr/bin/bc'], os.environ)
+
+    signal.signal(signal.SIGUSR1, sigusr1_handler)
+
+    expression = read_expression(read_descriptor_1_0)
+    global produced
+    while expression:
+        os.write(write_descriptor_0_2, (expression + '\n').encode())
+        result = read_expression(read_descriptor_2_0)
+        print(f'{expression} = {result}', flush=True)
+        produced = produced + 1
+        expression = read_expression(read_descriptor_1_0)
+
+
+if __name__ == "__main__":
+    main()
